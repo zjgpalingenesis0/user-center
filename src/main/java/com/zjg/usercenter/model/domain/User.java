@@ -1,9 +1,8 @@
 package com.zjg.usercenter.model.domain;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.Date;
 import lombok.Data;
 
@@ -43,6 +42,7 @@ public class User {
     /**
      * 密码
      */
+    @JsonIgnore
     private String userPassword;
 
     /**
@@ -71,7 +71,13 @@ public class User {
     private Date updateTime;
 
     /**
-     * 是否删除
+     * 是否删除,逻辑删除
      */
+    @TableLogic
     private Integer isDelete;
+
+    /**
+     * 用户权限  0是用户   1是管理员
+     */
+    private Integer userRole;
 }

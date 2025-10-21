@@ -2,6 +2,7 @@ package com.zjg.usercenter.service;
 
 import com.zjg.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
 * @author Lenovo
@@ -9,6 +10,10 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @createDate 2025-10-17 20:46:16
 */
 public interface UserService extends IService<User> {
+
+
+    //String USER_LOGIN_STATE = "userLoginState";
+
     /**
      *
      * @param userAccount  用户账户
@@ -17,4 +22,20 @@ public interface UserService extends IService<User> {
      * @return  返回新用户id
      */
     long userRegister(String userAccount, String userPassword, String checkPassword);
+
+
+    /**
+     *
+     * @param userAccount 用户账户
+     * @param userPassword   用户密码
+     * @return   返回一个用户对象
+     */
+    User userLogin(String userAccount, String userPassword, HttpServletRequest request);
+
+    /**
+     * 用户脱敏
+     * @param originUser   包含敏感信息用户
+     * @return  去掉敏感信息用户
+     */
+    User getSafetyUser(User originUser);
 }
