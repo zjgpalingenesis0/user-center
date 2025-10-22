@@ -42,7 +42,7 @@ public class User {
     /**
      * 密码
      */
-    @JsonIgnore
+    //@JsonIgnore
     private String userPassword;
 
     /**
@@ -80,4 +80,9 @@ public class User {
      * 用户权限  0是用户   1是管理员
      */
     private Integer userRole;
+
+    /**
+     * 编号
+     */
+    private String centerCode;
 }

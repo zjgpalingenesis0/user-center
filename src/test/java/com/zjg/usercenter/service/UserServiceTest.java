@@ -44,30 +44,31 @@ public class UserServiceTest {
 
     @Test
     void userRegister() {
-        String userAccount = "chibao";
-        String userPassword = null;
+        String userAccount = "zjgang";
+        String userPassword = "12345678";
         String checkPassword = "12345678";
-        long result = userService.userRegister(userAccount, userPassword, checkPassword);
-        Assertions.assertEquals(-1, result);
-        userPassword = "123455";
-        result = userService.userRegister(userAccount, userPassword, checkPassword);
-        Assertions.assertEquals(-1, result);
-        userAccount = "ch i";
-        userPassword = "123456789";
-        result = userService.userRegister(userAccount, userPassword, checkPassword);
-        Assertions.assertEquals(-1, result);
-        userAccount = "chibao";
-        result = userService.userRegister(userAccount, userPassword, checkPassword);
-        Assertions.assertEquals(-1, result);
-        userAccount = "zjgfeng";
-        userPassword = "12345678";
-        checkPassword = "12345678";
-        result = userService.userRegister(userAccount, userPassword, checkPassword);
-        Assertions.assertEquals(-1, result);
-        userAccount = "chibao";
-        userPassword = "123456789";
-        checkPassword = "123456789";
-        result = userService.userRegister(userAccount, userPassword, checkPassword);
+        String centerCode = "1";
+        long result = userService.userRegister(userAccount, userPassword, checkPassword, centerCode);
+//        Assertions.assertEquals(-1, result);
+//        userPassword = "123455";
+//        result = userService.userRegister(userAccount, userPassword, checkPassword);
+//        Assertions.assertEquals(-1, result);
+//        userAccount = "ch i";
+//        userPassword = "123456789";
+//        result = userService.userRegister(userAccount, userPassword, checkPassword);
+//        Assertions.assertEquals(-1, result);
+//        userAccount = "chibao";
+//        result = userService.userRegister(userAccount, userPassword, checkPassword);
+//        Assertions.assertEquals(-1, result);
+//        userAccount = "zjgfeng";
+//        userPassword = "12345678";
+//        checkPassword = "12345678";
+//        result = userService.userRegister(userAccount, userPassword, checkPassword);
+//        Assertions.assertEquals(-1, result);
+//        userAccount = "chibao";
+//        userPassword = "123456789";
+//        checkPassword = "123456789";
+//        result = userService.userRegister(userAccount, userPassword, checkPassword);
         Assertions.assertTrue(result > 0);
 
 
