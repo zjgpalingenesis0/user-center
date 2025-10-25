@@ -13,6 +13,7 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import static com.zjg.usercenter.constant.UserConstant.USER_LOGIN_STATE;
 @Slf4j
 @RestController
 @RequestMapping("/user")
+@CrossOrigin(origins = {"http://localhost:3000"}, allowCredentials = "true")
 public class UserController {
 
     @Resource
@@ -69,6 +71,25 @@ public class UserController {
         return ResultUtils.success(result, "用户已成功注销");
     }
 
+    /**
+     * 获取当前用户
+     * @param request
+     * @return
+     */
+    @GetMapping("/current")
+    public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User currentUser = (User) userObj;
+        if (currentUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN, "目前未登录");
+        }
+        long userId = currentUser.getId();
+        // TODO 检验用户是否合法
+        User user = userService.getById(userId);
+        User safeUser = userService.getSafetyUser(user);
+        return ResultUtils.success(safeUser);
+    }
+
     @GetMapping("/search")
     public BaseResponse<List<User>> searchUser(String username, HttpServletRequest request) {
         //管理员权限校验
@@ -87,8 +108,8 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
-    @DeleteMapping("/delete/{id}")
-    public BaseResponse<Boolean> deleteUser(@PathVariable long id,  HttpServletRequest request) {
+    @PostMapping("/delete")
+    public BaseResponse<Boolean> deleteUser(@RequestBody long id,  HttpServletRequest request) {
         //管理员权限校验
         if(!isAdmin(request)){
             throw new BusinessException(ErrorCode.NOT_AUTH, "非管理员权限");

@@ -3,6 +3,7 @@ package com.zjg.usercenter.model.domain;
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import lombok.Data;
 
@@ -63,12 +64,12 @@ public class User {
     /**
      * 数据创建时间
      */
-    private Date createTime;
+    private LocalDateTime createTime;
 
     /**
      * 数据更新时间
      */
-    private Date updateTime;
+    private LocalDateTime updateTime;
 
     /**
      * 是否删除,逻辑删除

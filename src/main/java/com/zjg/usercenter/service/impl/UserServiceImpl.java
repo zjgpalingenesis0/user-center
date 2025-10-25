@@ -18,6 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.zjg.usercenter.constant.UserConstant.USER_LOGIN_STATE;
+import static java.time.LocalDateTime.now;
 
 /**
 * @author Lenovo
@@ -87,6 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setCenterCode(centerCode);
+        user.setCreateTime(now());
         boolean saveResult = this.save(user);
         if(!saveResult) {
             throw new BusinessException(ErrorCode.SAVE_ERROR, "插入用户时出错");
