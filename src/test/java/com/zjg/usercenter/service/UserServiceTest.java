@@ -1,5 +1,8 @@
 package com.zjg.usercenter.service;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 import com.zjg.usercenter.model.domain.User;
 import jakarta.annotation.Resource;
@@ -73,5 +76,12 @@ public class UserServiceTest {
 
 
 
+    }
+
+    @Test
+    public void testSearchUserByTags() {
+        List<String> tagNameList = Arrays.asList("java", "python");
+        List<User> userList = userService.searchUserByTags(tagNameList);
+        Assertions.assertNotNull(userList);
     }
 }

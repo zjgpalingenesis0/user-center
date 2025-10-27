@@ -2,8 +2,11 @@ package com.zjg.usercenter.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.zjg.usercenter.common.ErrorCode;
 import com.zjg.usercenter.exception.BusinessException;
+import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.zjg.usercenter.service.UserService;
 import com.zjg.usercenter.mapper.UserMapper;
@@ -12,10 +15,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.zjg.usercenter.constant.UserConstant.USER_LOGIN_STATE;
 import static java.time.LocalDateTime.now;
@@ -88,7 +95,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
         user.setCenterCode(centerCode);
-        user.setCreateTime(now());
         boolean saveResult = this.save(user);
         if(!saveResult) {
             throw new BusinessException(ErrorCode.SAVE_ERROR, "插入用户时出错");
@@ -160,6 +166,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setCreateTime(originUser.getCreateTime());
         safetyUser.setUserRole(originUser.getUserRole());
         safetyUser.setCenterCode(originUser.getCenterCode());
+        safetyUser.setTag(originUser.getTag());
         return safetyUser;
     }
 
@@ -167,6 +174,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public int userLogout(HttpServletRequest request) {
         request.getSession().removeAttribute(USER_LOGIN_STATE);
         return 1;
+    }
+
+    @Override
+    public List<User> searchUserByTags(List<String> tagNameList) {
+
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入标签列表为空");
+        }
+        //1.SQL方式
+//        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//        for (String tagName : tagNameList) {
+//            queryWrapper = queryWrapper.like("tag",tagName);
+//        }
+//        List<User> userList = userMapper.selectList(queryWrapper);
+
+        //2.内存查询
+        //先查询所有用户
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        List<User> userList = userMapper.selectList(queryWrapper);
+        //在内存中判断是否包含要求的标签
+        Gson gson = new Gson();
+        return userList.stream().filter(user -> {
+            String tagStr = user.getTag();
+            if (StringUtils.isAnyBlank(tagStr)) {
+                return false;
+            }
+            Set<String> tempTagNameSet = gson.fromJson(tagStr, new TypeToken<Set<String>>() {}.getType());
+            for (String tagName : tagNameList) {
+                if (!tempTagNameSet.contains(tagName)) {
+                    return false;
+                }
+            }
+            return true;
+        }).map(this::getSafetyUser).collect(Collectors.toList());
+
     }
 }
 

@@ -1,8 +1,11 @@
 package com.zjg.usercenter.service;
 
+import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.List;
 
 /**
 * @author Lenovo
@@ -45,4 +48,11 @@ public interface UserService extends IService<User> {
      * @return  返回一个整数
      */
     int userLogout(HttpServletRequest request);
+
+    /**
+     * 根据标签名查询用户
+     * @param tagNameList  标签名列表
+     * @return 查询到的用户列表
+     */
+    List<User> searchUserByTags(List<String> tagNameList);
 }

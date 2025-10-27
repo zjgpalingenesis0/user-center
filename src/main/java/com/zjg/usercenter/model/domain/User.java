@@ -1,27 +1,30 @@
 package com.zjg.usercenter.model.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
-import java.time.LocalDateTime;
 import java.util.Date;
+
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
- * 用户中心用户
+ * 用户
  * @TableName user
  */
 @TableName(value ="user")
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
     /**
      * ID
      */
     @TableId(type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
-     * 用户nicheng
+     * 用户名
      */
     private String username;
 
@@ -43,7 +46,6 @@ public class User {
     /**
      * 密码
      */
-    //@JsonIgnore
     private String userPassword;
 
     /**
@@ -64,12 +66,12 @@ public class User {
     /**
      * 数据创建时间
      */
-    private LocalDateTime createTime;
+    private Date createTime;
 
     /**
      * 数据更新时间
      */
-    private LocalDateTime updateTime;
+    private Date updateTime;
 
     /**
      * 是否删除,逻辑删除
@@ -86,4 +88,9 @@ public class User {
      * 编号
      */
     private String centerCode;
+
+    /**
+     * 用户标签列表
+     */
+    private String tag;
 }
