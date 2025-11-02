@@ -18,12 +18,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.zjg.usercenter.constant.UserConstant.ADMIN_ROLE;
 import static com.zjg.usercenter.constant.UserConstant.USER_LOGIN_STATE;
 import static java.time.LocalDateTime.now;
 
@@ -176,20 +179,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return 1;
     }
 
+    /**
+     * 根据标签搜索用户（内存查询）
+     * @param tagNameList  标签名列表
+     * @return 查到的用户列表
+     */
     @Override
     public List<User> searchUserByTags(List<String> tagNameList) {
 
         if (CollectionUtils.isEmpty(tagNameList)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入标签列表为空");
         }
-        //1.SQL方式
-//        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-//        for (String tagName : tagNameList) {
-//            queryWrapper = queryWrapper.like("tag",tagName);
-//        }
-//        List<User> userList = userMapper.selectList(queryWrapper);
-
-        //2.内存查询
+        //内存查询
         //先查询所有用户
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         List<User> userList = userMapper.selectList(queryWrapper);
@@ -201,6 +202,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 return false;
             }
             Set<String> tempTagNameSet = gson.fromJson(tagStr, new TypeToken<Set<String>>() {}.getType());
+            tempTagNameSet = Optional.ofNullable(tempTagNameSet).orElse(new HashSet<>());   //如果集合为空处理一下，防止空指针异常
             for (String tagName : tagNameList) {
                 if (!tempTagNameSet.contains(tagName)) {
                     return false;
@@ -208,6 +210,69 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
             return true;
         }).map(this::getSafetyUser).collect(Collectors.toList());
+
+    }
+
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        if(request == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入为空");
+        }
+        Object objUser = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User loginUser = (User) objUser;
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN, "未登录");
+        }
+        return loginUser;
+    }
+
+    @Override
+    public int updateUser(User user, User loginUser) {
+        long id = user.getId();
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户id不符合规范");
+        }
+        if (!isAdmin(loginUser) && id != loginUser.getId()) {
+            throw new BusinessException(ErrorCode.NOT_AUTH, "权限不够");
+        }
+        User oldUser = userMapper.selectById(id);
+        if (oldUser == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR, "查询为空");
+        }
+
+        return userMapper.updateById(user);  //这里是要前端输入的user信息内容，可能有改变的
+    }
+
+    @Override
+    public Boolean isAdmin(HttpServletRequest request) {
+        User user =  getLoginUser(request);
+        return user != null && user.getUserRole() == ADMIN_ROLE;
+    }
+
+    @Override
+    public Boolean isAdmin(User loginUser) {
+        return loginUser != null && loginUser.getUserRole() == ADMIN_ROLE;
+    }
+
+    /**
+     * 根据标签搜索用户（sql查询）  @Deprecated 表示过时，不调用
+     * @param tagNameList  标签名列表
+     * @return 查到的用户列表
+     */
+    @Deprecated
+    private List<User> searchUserByTagsBySQL(List<String> tagNameList) {
+
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入标签列表为空");
+        }
+        //SQL方式
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        for (String tagName : tagNameList) {
+            queryWrapper = queryWrapper.like("tag",tagName);
+        }
+        List<User> userList = userMapper.selectList(queryWrapper);
+
+        return userList.stream().map(this::getSafetyUser).collect(Collectors.toList());
 
     }
 }

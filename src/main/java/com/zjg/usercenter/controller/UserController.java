@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.graphql.GraphQlProperties;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -93,7 +94,7 @@ public class UserController {
     @GetMapping("/search")
     public BaseResponse<List<User>> searchUser(String username, HttpServletRequest request) {
         //管理员权限校验
-        if(!isAdmin(request)){
+        if(!userService.isAdmin(request)){
             throw new BusinessException(ErrorCode.NOT_AUTH, "非管理员权限");
         }
 
@@ -108,10 +109,35 @@ public class UserController {
         return ResultUtils.success(result);
     }
 
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUserTags(@RequestParam(required = false) List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入标签为空");
+        }
+        List<User> userList = userService.searchUserByTags(tagNameList);
+        if(!CollectionUtils.isEmpty(userList)){
+            return ResultUtils.success(userList, "成功根据标签找到用户");
+        }
+        else {
+            return ResultUtils.success(userList, "没找到有这种标签的用户");
+        }
+
+    }
+
+    @PostMapping("/update")
+    public BaseResponse<Integer> updateUser(@RequestBody User user, HttpServletRequest request) {
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "需要修改的用户为空");
+        }
+        User loginUser = userService.getLoginUser(request);
+        int result = userService.updateUser(user, loginUser);
+        return ResultUtils.success(result, "更新成功");
+    }
+
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestBody long id,  HttpServletRequest request) {
         //管理员权限校验
-        if(!isAdmin(request)){
+        if(!userService.isAdmin(request)){
             throw new BusinessException(ErrorCode.NOT_AUTH, "非管理员权限");
         }
 
@@ -122,16 +148,12 @@ public class UserController {
         return ResultUtils.success(result, "用户已成功删除");
     }
 
-    /**
-     * 是否为管理员
-     * @param request   请求
-     * @return  返回
-     */
-    private Boolean isAdmin(HttpServletRequest request) {
-        //管理员权限校验
-        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
-        User user = (User) userObj;
-        return user != null && user.getUserRole() == ADMIN_ROLE;
 
-    }
+//    public Boolean isAdmin(HttpServletRequest request) {
+//        //管理员权限校验
+//        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+//        User user = (User) userObj;
+//        return user != null && user.getUserRole() == ADMIN_ROLE;
+//
+//    }
 }
