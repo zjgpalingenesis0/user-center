@@ -1,5 +1,6 @@
 package com.zjg.usercenter.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -84,4 +85,11 @@ public interface UserService extends IService<User> {
      * @return
      */
     Boolean isAdmin(User loginUser);
+
+    /**
+     * 从redis和数据库中读取分页数据
+     * @param loginUser   登录用户信息
+     * @return  用户分页
+     */
+    Page<User> getData(User loginUser, long pageNum, long pageSize);
 }

@@ -1,6 +1,7 @@
 package com.zjg.usercenter.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -10,10 +11,13 @@ import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.zjg.usercenter.service.UserService;
 import com.zjg.usercenter.mapper.UserMapper;
+import com.zjg.usercenter.utils.ResultUtils;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
@@ -22,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,6 +49,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     private UserMapper userMapper;
 
     private final static String SALT = "love";
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
 
 
@@ -252,6 +260,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public Boolean isAdmin(User loginUser) {
         return loginUser != null && loginUser.getUserRole() == ADMIN_ROLE;
+    }
+
+    @Override
+    public Page<User> getData(User loginUser, long pageNum, long pageSize) {
+        //设置缓存Key
+        String redisKey = String.format("pika.:user:recommend:%s", loginUser.getId());
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
+        if (userPage != null) {
+            return userPage;
+        }
+        //没有缓存，从数据库中读
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        Page<User> userList = userMapper.selectPage(new Page<>(pageNum, pageSize), queryWrapper);
+        //要把数据库中读出的数据放入缓存
+        try {
+            valueOperations.set(redisKey, userList, 10000, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("redis set key error", e);
+        }
+
+        return userList;
     }
 
     /**

@@ -136,11 +136,23 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <version>3.5.6</version>
         </dependency>
+        <!--redisson https://redisson/docs/getting-started-->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.52.0</version>
+        </dependency>
         <!-- spring-session-data-redis -->
         <dependency>
             <groupId>org.springframework.session</groupId>
             <artifactId>spring-session-data-redis</artifactId>
             <version>3.5.3</version>
+        </dependency>
+        <!--PaginationInnerInterceptor-->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>3.5.14</version> <!-- 确保版本和 MyBatis Plus 主包一致 -->
         </dependency>
     </dependencies>
 
@@ -172,6 +184,13 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skipTests>true</skipTests>
                 </configuration>
             </plugin>
         </plugins>

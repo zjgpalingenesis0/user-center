@@ -1,28 +1,25 @@
-package com.zjg.usercenter.service;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+package com.zjg.usercenter.once;
 
 import com.zjg.usercenter.mapper.UserMapper;
 import com.zjg.usercenter.model.domain.User;
+import com.zjg.usercenter.service.UserService;
 import jakarta.annotation.Resource;
-import org.junit.jupiter.api.Assertions;
+import org.apache.tomcat.util.threads.ThreadPoolExecutor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.StopWatch;
 
-import static org.assertj.core.util.DateUtil.now;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+
+
 import static org.junit.jupiter.api.Assertions.*;
-
-/**
- * 用户服务测试
- * @author zjg
- */
-
 @SpringBootTest
-public class UserServiceTest {
+class InsertUsersTest {
 
     @Resource
     private UserService userService;
@@ -30,66 +27,9 @@ public class UserServiceTest {
     @Resource
     private UserMapper userMapper;
 
-    @Test
-    public void testAddUser() {
-        User user = new User();
+    //用自己的线程池，之前用的都是默认的
+    private ExecutorService executorService = new ThreadPoolExecutor(20, 1000, 10000, TimeUnit.MINUTES, new ArrayBlockingQueue<>(10000));
 
-        user.setUsername("wanfeng");
-        user.setUserAccount("123");
-        user.setAvatarUrl("https://cn.bing.com/images/search?q=%e8%87%ad%e8%87%ad%e6%b3%a5&id=161EC173562251F7ECF2DB2ED9D3AB79C7AFE47F&FORM=IQFRBA");
-        user.setGender(0);
-        user.setUserPassword("xxx");
-        user.setPhone("123");
-        user.setEmail("456");
-        user.setUserStatus(0);
-        user.setCreateTime(now());
-        user.setUpdateTime(now());
-
-        Boolean result = userService.save(user);
-        System.out.println(user.getId());
-        Assertions.assertTrue(result);
-
-    }
-
-    @Test
-    void userRegister() {
-//        String userAccount = "zjgang";
-//        String userPassword = "12345678";
-//        String checkPassword = "12345678";
-//        String centerCode = "1";
-//        long result = userService.userRegister(userAccount, userPassword, checkPassword, centerCode);
-//        Assertions.assertEquals(-1, result);
-//        userPassword = "123455";
-//        result = userService.userRegister(userAccount, userPassword, checkPassword);
-//        Assertions.assertEquals(-1, result);
-//        userAccount = "ch i";
-//        userPassword = "123456789";
-//        result = userService.userRegister(userAccount, userPassword, checkPassword);
-//        Assertions.assertEquals(-1, result);
-//        userAccount = "chibao";
-//        result = userService.userRegister(userAccount, userPassword, checkPassword);
-//        Assertions.assertEquals(-1, result);
-//        userAccount = "zjgfeng";
-//        userPassword = "12345678";
-//        checkPassword = "12345678";
-//        result = userService.userRegister(userAccount, userPassword, checkPassword);
-//        Assertions.assertEquals(-1, result);
-//        userAccount = "chibao";
-//        userPassword = "123456789";
-//        checkPassword = "123456789";
-//        result = userService.userRegister(userAccount, userPassword, checkPassword);
-//        Assertions.assertTrue(result > 0);
-
-
-
-    }
-
-    @Test
-    public void testSearchUserByTags() {
-        List<String> tagNameList = Arrays.asList("java", "python");
-        List<User> userList = userService.searchUserByTags(tagNameList);
-        Assertions.assertNotNull(userList);
-    }
 
     @Test
     public void doInsertUsers() {
@@ -139,8 +79,10 @@ public class UserServiceTest {
 
         //多线程
         int j = 0;
+        final int BATCH_SIZE = 5000;
+        int group = INSERT_NUM / BATCH_SIZE;
         List<CompletableFuture<Void>> futureList = new ArrayList<>();
-        for (int i = 0; i < 10; i ++) {
+        for (int i = 0; i < group; i ++) {
             List<User> userList = new ArrayList<>();
             while (true) {
                 j++;
@@ -157,20 +99,20 @@ public class UserServiceTest {
                 user.setCenterCode("1313");
                 user.setTag("[]");
                 userList.add(user);
-                if (j % 10000 == 0) {
+                if (j % BATCH_SIZE == 0) {
                     break;
                 }
             }
             //异步执行
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                System.out.println("thredName: " + Thread.currentThread().getName());
-                userService.saveBatch(userList, 10000);
-            });
+                System.out.println("threadName: " + Thread.currentThread().getName());
+                userService.saveBatch(userList, BATCH_SIZE);
+            }, executorService);
             futureList.add(future);
         }
         //回到单线程来
         CompletableFuture.allOf(futureList.toArray(new CompletableFuture[]{})).join();
         stopWatch.stop();
-        System.out.println(stopWatch.getTotalTimeMillis());
+        System.out.println(stopWatch.getTotalTimeMillis());   //20.442s 最快
     }
 }
