@@ -11,6 +11,7 @@ import com.zjg.usercenter.model.request.UserLoginRequest;
 import com.zjg.usercenter.model.request.UserRegisterRequest;
 import com.zjg.usercenter.service.UserService;
 import com.zjg.usercenter.utils.ResultUtils;
+import com.zjg.usercenter.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -165,5 +166,12 @@ public class UserController {
         return ResultUtils.success(userPage, "推荐分页查询成功");
     }
 
-
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUsers(long num, HttpServletRequest request) {
+        if (num <= 0 || num > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数有误");
+        }
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(userService.matchUsers(num, loginUser));
+    }
 }

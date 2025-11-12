@@ -11,7 +11,9 @@ import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.zjg.usercenter.service.UserService;
 import com.zjg.usercenter.mapper.UserMapper;
+import com.zjg.usercenter.utils.AlgorithmUtils;
 import com.zjg.usercenter.utils.ResultUtils;
+import com.zjg.usercenter.vo.UserVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -282,6 +281,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
 
         return userList;
+    }
+
+    @Override
+    public List<User> matchUsers(long num, User loginUser) {
+        //优化：可以过滤掉标签为空的用户,并且每个用户只查相关的列
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id", "tag");
+        queryWrapper.isNotNull("tag");
+        //查询满足条件的所有用户的相关列
+        List<User> userList = this.list(queryWrapper);
+        String tag = loginUser.getTag();
+        Gson gson = new Gson();
+        //把json转为list格式
+        List<String> tagList = gson.fromJson(tag, new TypeToken<List<String>>() {}
+                .getType());
+        //用户下标 -> 相似度
+        Map<Integer, Long> indexDistanceMap = new HashMap<>();
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            //如果查到自己跳过
+            if (user.getId().equals(loginUser.getId())) {
+                continue;
+            }
+            String userTag = user.getTag();
+            //如果没设置标签跳过这个用户
+            if (StringUtils.isBlank(userTag)) {
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTag, new TypeToken<List<String>>() {}
+                    .getType());
+            long distance = AlgorithmUtils.minDistance(tagList, userTagList);
+            indexDistanceMap.put(i, distance);
+        }
+        List<Integer> maxDistanceIndexList = indexDistanceMap.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue())
+                .limit(num)
+                .map(Map.Entry::getKey)
+                .toList();
+        // 按顺序获取匹配到的用户ID列表（保持相似度排序）
+        List<Long> matchedUserIds = maxDistanceIndexList.stream()
+                .map(index -> userList.get(index).getId())
+                .toList();
+        // 根据ID重新查询完整的用户信息
+        List<User> matchedUsers = this.listByIds(matchedUserIds);
+        // 创建ID到用户信息的映射
+        Map<Long, User> userMap = matchedUsers.stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        // 按原有顺序（相似度顺序）返回脱敏后的用户信息
+        return matchedUserIds.stream()
+                .map(userMap::get)
+                .map(this::getSafetyUser)
+                .toList();
     }
 
     /**

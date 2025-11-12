@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zjg.usercenter.model.domain.Tag;
 import com.zjg.usercenter.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zjg.usercenter.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
@@ -92,4 +93,12 @@ public interface UserService extends IService<User> {
      * @return  用户分页
      */
     Page<User> getData(User loginUser, long pageNum, long pageSize);
+
+    /**
+     * 随机匹配
+     * @param num  匹配用户数
+     * @param loginUser 登录用户信息
+     * @return 匹配用户列表
+     */
+    List<User> matchUsers(long num, User loginUser);
 }
