@@ -57,5 +57,13 @@ public class TeamUserVO implements Serializable {
      * 创建人用户信息
      */
     UserVO createUser;
+    /**
+     * 用户是否已加入
+     */
+    private Boolean hasJoin;
+    /**
+     * 加入用户数量
+     */
+    private Integer hasJoinNum;
 
 }

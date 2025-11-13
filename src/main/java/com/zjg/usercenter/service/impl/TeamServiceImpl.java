@@ -2,6 +2,7 @@ package com.zjg.usercenter.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zjg.usercenter.enum_.TeamStatusEnum;
 import com.zjg.usercenter.common.ErrorCode;
@@ -22,7 +23,11 @@ import com.zjg.usercenter.vo.TeamUserVO;
 import com.zjg.usercenter.vo.UserVO;
 import jakarta.annotation.Resource;
 import org.apache.commons.collections4.CollectionUtils;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
 * @author Lenovo
@@ -45,6 +51,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedissonClient redissonClient;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -291,38 +303,65 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 //            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能加入自己的队伍");
 //        }
 
-        // 用户最多可以加入5个队伍
         Long userId = loginUser.getId();
-        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId);
-        long hasJoinTeam = userTeamService.count(queryWrapper);   // 用户已加入队伍数量
-        if (hasJoinTeam > 5) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户加入太多队伍");
-        }
-        // 不能重复加入已加入的队伍
-        queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId);
-        queryWrapper.eq("team_id", teamId);
-        long hasUserJoinTeam = userTeamService.count(queryWrapper);
-        if (hasUserJoinTeam > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能重复加入队伍");
-        }
-        // 不能加入已满队伍
+        // 都放到锁里。意思是如果要加入同一个队伍，很多个线程一个一个进入其中的逻辑执行，按顺序来。
+        // 但是不同用户加入不同队伍就可以同时进行
+        // 只有单个服务器可以用这个synchronized(this){业务逻辑}，如果有多个服务器，可以用分布式锁
+        //分布式锁，只有一个线程能抢到锁
+        RLock lock = redissonClient.getLock("pika.join.team:" + teamId);
+        try {
+            // 抢锁并执行  加while要让每个线程都抢到一次,没抢到锁就循环，直到所有线程执行成功或者异常
+            // (也就是登录用户所有想加入的队伍都是一次，满足条件能加入，不满足下面条件就不让加，但必须给机会)
+            // 如果怕思索，就在循环外设置一个计数器count=0，每抢到一次锁就+1，直到max次数退出循环
+            while(true) {
+                if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                    System.out.println("getLock" + Thread.currentThread().threadId());
+                    // 用户最多可以加入5个队伍
+                    QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+                    queryWrapper.eq("user_id", userId);
+                    long hasJoinTeam = userTeamService.count(queryWrapper);   // 用户已加入队伍数量
+                    if (hasJoinTeam > 5) {
+                        throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户加入太多队伍");
+                    }
+                    // 不能重复加入已加入的队伍
+                    queryWrapper = new QueryWrapper<>();
+                    queryWrapper.eq("user_id", userId);
+                    queryWrapper.eq("team_id", teamId);
+                    long hasUserJoinTeam = userTeamService.count(queryWrapper);
+                    if (hasUserJoinTeam > 0) {
+                        throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能重复加入队伍");
+                    }
+
+                    // 不能加入已满队伍
 //        queryWrapper = new QueryWrapper<>();
 //        queryWrapper.eq("team_id", teamId);
 //        long teamHasJoinNum = userTeamService.count(queryWrapper);   // 队伍中已加入人数
-        long teamHasJoinNum = getTeamUserByTeamId(teamId);
-        if (teamHasJoinNum >= team.getMaxNum()) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
+                    long teamHasJoinNum = getTeamUserByTeamId(teamId);
+                    if (teamHasJoinNum >= team.getMaxNum()) {
+                        throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
+                    }
+
+                    // 新增队伍-用户关联信息
+                    UserTeam userTeam = new UserTeam();
+                    userTeam.setUserId(userId);
+                    userTeam.setTeamId(teamId);
+                    userTeam.setJoinTime(new Date());
+
+                    return userTeamService.save(userTeam);
+
+                }
+            }
+
+        } catch (InterruptedException e) {
+            log.error("joinTeam error", e);
+            return false;
+        } finally {
+            //释放锁，只能释放自己的锁
+            if (lock.isHeldByCurrentThread()) {
+                System.out.println("unlock" +  Thread.currentThread().threadId());
+                lock.unlock();
+            }
         }
-
-        // 新增队伍-用户关联信息
-        UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(userId);
-        userTeam.setTeamId(teamId);
-        userTeam.setJoinTime(new Date());
-
-        return userTeamService.save(userTeam);
     }
 
     @Override

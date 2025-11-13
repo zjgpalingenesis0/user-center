@@ -27,6 +27,7 @@ import javax.swing.text.html.HTML;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -100,9 +101,43 @@ public class TeamController {
         if (teamQuery == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "输入参数为空");
         }
+
         Boolean isAdmin = userService.isAdmin(request);
-        List<TeamUserVO> list = teamService.listTeams(teamQuery, isAdmin);
-        return ResultUtils.success(list, "成功查询队伍列表");
+        List<TeamUserVO> teamList = teamService.listTeams(teamQuery, isAdmin);
+        // 优化：判断当前用户是否加入队伍
+        // 1. 查询队伍id列表
+        List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).toList();
+        // 2. 判断当前用户是否已加入队伍
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        //希望用户不登陆也能使用，但是getLoginUser方法中封装了一个报异常，为了有一场也能正常运行，用try-catch
+        try {
+            User loginUser = userService.getLoginUser(request);
+            queryWrapper.eq("user_id", loginUser.getId());
+            queryWrapper.in("team_id", teamIdList);
+            List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+            //已加入的队伍id集合，这里用set因为去重（一个用户可能多次加入同一个队伍），查找高效
+            Set<Long> hasJoinTeamIdSet = userTeamList.stream()
+                    .map(UserTeam::getTeamId)
+                    .collect(Collectors.toSet());
+            teamList.forEach(team -> {
+                boolean hasJoin = hasJoinTeamIdSet.contains(team.getId());
+                team.setHasJoin(hasJoin);
+            });
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+
+        // 3. 查询加入队伍的用户信息（人数）
+        queryWrapper = new  QueryWrapper<>();
+        queryWrapper.in("team_id", teamIdList);
+        List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+        //每个队伍id 映射对应到 加入这个队伍的用户列表
+        Map<Long, List<UserTeam>> teamIdUserTeamList = userTeamList.stream()
+                .collect(Collectors.groupingBy(UserTeam::getTeamId));
+        teamList.forEach(team -> {
+            team.setHasJoinNum(teamIdUserTeamList.getOrDefault(team.getId(), new ArrayList<>()).size());
+        });
+        return ResultUtils.success(teamList, "成功查询队伍列表");
     }
 
     @GetMapping("/list/page")
